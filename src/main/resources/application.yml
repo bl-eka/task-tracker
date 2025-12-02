@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: task-tracker
+
+  # НАСТРОЙКИ POSTGRESQL
+  datasource:
+    url: jdbc:postgresql://localhost:5433/task_tracker
+    username: admin
+    password: admin123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          batch_size: 20
+    show-sql: true
+
+  # Spring Security (временные настройки для тестов)
+  security:
+    user:
+      name: test
+      password: test
+
+server:
+  port: 8081
+  servlet:
+    context-path: /api
+
+# Swagger/OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+# JWT настройки (ДОБАВЬ ЭТО В КОНЕЦ!)
+jwt:
+  secret: "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"  # 512-bit secret
+  expiration: 86400000  # 24 часа в миллисекундах
+
+# Логирование
+logging:
+  level:
+    com.tasktracker: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+
