@@ -20,16 +20,8 @@ spring:
           batch_size: 20
     show-sql: true
 
-  # Spring Security (временные настройки для тестов)
-  security:
-    user:
-      name: test
-      password: test
-
 server:
-  port: 8081
-  servlet:
-    context-path: /api
+  port: 8083
 
 # Swagger/OpenAPI
 springdoc:
@@ -40,7 +32,7 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
 
-# JWT настройки (ДОБАВЬ ЭТО В КОНЕЦ!)
+# JWT настройки
 jwt:
   secret: "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970"  # 512-bit secret
   expiration: 86400000  # 24 часа в миллисекундах
@@ -52,3 +44,9 @@ logging:
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
 
+# CORS настройки
+cors:
+  allowed-origins: "http://localhost:3000,http://localhost:8080"
+  allowed-methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+  allowed-headers: "*"
+  allow-credentials: true
