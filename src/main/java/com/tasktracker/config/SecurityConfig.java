@@ -1,7 +1,7 @@
 package com.tasktracker.config;
 
 import com.tasktracker.security.JwtAuthenticationFilter;
-import org.springframework.beans.factory.annotation.Qualifier;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,63 +19,65 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
 @Configuration
-@EnableMethodSecurity
 @EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
-    private final JwtAuthenticationFilter jwtAuthFilter;
-
-    public SecurityConfig(@Qualifier("customUserDetailsService") UserDetailsService userDetailsService,
-                          JwtAuthenticationFilter jwtAuthFilter) {
-        this.userDetailsService = userDetailsService;
-        this.jwtAuthFilter = jwtAuthFilter;
-    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
+        http
                 .csrf(AbstractHttpConfigurer::disable)
-                // Добавляем CORS конфигурацию
-                .cors(cors -> cors.configurationSource(request -> {
-                    CorsConfiguration config = new CorsConfiguration();
-                    config.setAllowedOrigins(List.of("*"));
-                    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                    config.setAllowedHeaders(List.of("*"));
-                    return config;
-                }))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // Публичные эндпоинты (без аутентификации)
-                        .requestMatchers("/api/auth/**").permitAll()  // Регистрация и логин
-                        .requestMatchers("/api/ping").permitAll()      // Тестовый эндпоинт
-                        .requestMatchers("/api/ping2").permitAll()     // Второй тестовый эндпоинт
+                        // Открытые эндпоинты (без аутентификации)
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/error",
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/api-docs/**",
+                                "/webjars/**",
+                                "/swagger-resources/**"
+                        ).permitAll()
 
-                        // Swagger/OpenAPI (документация)
-                        .requestMatchers("/swagger-ui/**").permitAll()
-                        .requestMatchers("/swagger-ui.html").permitAll()
-                        .requestMatchers("/v3/api-docs/**").permitAll()
-                        .requestMatchers("/swagger-resources/**").permitAll()
-                        .requestMatchers("/webjars/**").permitAll()
+                        // ✅ ДОБАВИТЬ Actuator health для мониторинга
+                        .requestMatchers("/actuator/health").permitAll()
+
+                        // ✅ ДОБАВИТЬ ТЕСТОВЫЙ ЭНДПОИНТ
+                        .requestMatchers("/api/simple-tasks/**").authenticated()
 
                         // Админские эндпоинты
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        // Все остальные эндпоинты под /api требуют аутентификации
-                        .requestMatchers("/api/**").authenticated()
-
-                        // Любые другие запросы
-                        .anyRequest().permitAll()  // Или .authenticated() если хотим защитить все
+                        // Все остальные требуют аутентификации
+                        .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        return authProvider;
     }
 
     @Bean
@@ -84,15 +86,36 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return provider;
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
-        return configuration.getAuthenticationManager();
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // ✅ Используем ТОЛЬКО setAllowedOriginPatterns (убрать setAllowedOrigins)
+        configuration.setAllowedOriginPatterns(List.of("*"));
+
+        // ✅ РАЗРЕШАЕМ ВСЕ МЕТОДЫ
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"));
+
+        // ✅ РАЗРЕШАЕМ ВСЕ ЗАГОЛОВКИ
+        configuration.setAllowedHeaders(List.of("*"));
+
+        // ✅ РАЗРЕШАЕМ CREDENTIALS
+        configuration.setAllowCredentials(true);
+
+        // ✅ РАЗРЕШАЕМ ВСЕ ВАЖНЫЕ ЗАГОЛОВКИ
+        configuration.setExposedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "Access-Control-Allow-Origin",
+                "Access-Control-Allow-Credentials"
+        ));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

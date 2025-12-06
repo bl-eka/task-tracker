@@ -1,9 +1,12 @@
-package com.tasktracker.service;
+package com.tasktracker.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j; // ДОБАВЬТЕ ЭТОТ ИМПОРТ
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -15,6 +18,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 @Service
+@Slf4j // ДОБАВЬТЕ ЭТУ АННОТАЦИЮ
 public class JwtService {
 
     @Value("${jwt.secret}")
@@ -29,7 +33,7 @@ public class JwtService {
 
     public String extractRole(String token) {
         String role = extractClaim(token, claims -> claims.get("role", String.class));
-        System.out.println("=== JWT ROLE EXTRACTED: " + role + " ===");
+        log.info("JWT role extracted: {}", role);  // ✅ Используем логгер
         return role;
     }
 
@@ -55,8 +59,7 @@ public class JwtService {
 
         extraClaims.put("role", role);
 
-        System.out.println("=== GENERATING TOKEN FOR: " + userDetails.getUsername() + " ===");
-        System.out.println("=== ROLE IN TOKEN: " + role + " ===");
+        log.info("Generating token for: {}, role: {}", userDetails.getUsername(), role);
 
         return Jwts.builder()
                 .claims(extraClaims)                      // Новый метод: .claims() вместо .setClaims()
@@ -96,12 +99,24 @@ public class JwtService {
     // Для обратной совместимости с JwtAuthenticationFilter
     public boolean validateToken(String token) {
         try {
+            log.debug("Validating JWT token...");
             Jwts.parser()
                     .verifyWith(getSignInKey())
                     .build()
                     .parseSignedClaims(token);
+            log.debug("JWT token validation successful");
             return true;
+        } catch (ExpiredJwtException e) {
+            log.error("JWT token expired: {}", e.getMessage());
+            return false;
+        } catch (MalformedJwtException e) {
+            log.error("Invalid JWT token format: {}", e.getMessage());
+            return false;
+        } catch (SecurityException e) {
+            log.error("Invalid JWT signature: {}", e.getMessage());
+            return false;
         } catch (Exception e) {
+            log.error("JWT token validation failed: {}", e.getMessage());
             return false;
         }
     }

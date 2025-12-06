@@ -5,6 +5,7 @@ import com.tasktracker.dto.AuthResponse;
 import com.tasktracker.entity.Role;
 import com.tasktracker.entity.User;
 import com.tasktracker.repository.UserRepository;
+import com.tasktracker.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

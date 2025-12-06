@@ -5,11 +5,11 @@ import com.tasktracker.dto.AuthResponse;
 import com.tasktracker.entity.Role;
 import com.tasktracker.entity.User;
 import com.tasktracker.repository.UserRepository;
+import com.tasktracker.security.JwtService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,45 +17,41 @@ import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager;
 
     public AuthResponse register(AuthRequest request) {
-        System.out.println("=== AUTH SERVICE REGISTER CALLED: " + request.getEmail() + " ===");
+        log.info("Registering user: {}", request.getEmail());
 
-        // Проверяем, нет ли уже пользователя с таким email
+        // Проверяем, существует ли пользователь
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            System.out.println("=== USER ALREADY EXISTS: " + request.getEmail() + " ===");
             throw new RuntimeException("User already exists");
         }
 
-        System.out.println("=== CREATING NEW USER ===");
-
-        // Создаем нового пользователя
+        // Создаем пользователя (без builder, используем конструктор и сеттеры)
         User user = new User();
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(Role.ROLE_USER);
+        user.setRole(Role.ROLE_USER); // Используем ROLE_USER вместо USER
 
-        System.out.println("=== SAVING USER TO DB ===");
         userRepository.save(user);
-        System.out.println("=== USER SAVED, ID: " + user.getId() + " ===");
+        log.info("User registered: {} (ID: {})", user.getEmail(), user.getId());
 
-        // СОЗДАЕМ UserDetails ДЛЯ JWT
+        // Создаем UserDetails
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPassword(),
-                Collections.singletonList(() -> user.getRole().name())
+                Collections.singleton(new SimpleGrantedAuthority(user.getRole().name()))
+                // Обратите внимание: user.getRole().name() вернет "ROLE_USER"
         );
 
-        System.out.println("=== GENERATING JWT TOKEN ===");
+        // Генерируем токен
         String token = jwtService.generateToken(userDetails);
-        System.out.println("=== TOKEN GENERATED: " +
-                (token != null ? token.substring(0, Math.min(30, token.length())) : "null") + "... ===");
+        log.info("Token generated for: {}", user.getEmail());
 
         return AuthResponse.builder()
                 .token(token)
@@ -64,39 +60,28 @@ public class AuthService {
     }
 
     public AuthResponse login(AuthRequest request) {
-        System.out.println("=== AUTH SERVICE LOGIN CALLED: " + request.getEmail() + " ===");
-
-        try {
-            // Аутентифицируем пользователя
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            request.getEmail(),
-                            request.getPassword()
-                    )
-            );
-
-            System.out.println("=== AUTHENTICATION SUCCESSFUL ===");
-        } catch (Exception e) {
-            System.out.println("=== AUTHENTICATION FAILED: " + e.getMessage() + " ===");
-            throw new RuntimeException("Authentication failed: " + e.getMessage());
-        }
+        log.info("Login attempt for user: {}", request.getEmail());
 
         // Находим пользователя
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + request.getEmail()));
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        System.out.println("=== USER FOUND: " + user.getEmail() + " ===");
+        // Проверяем пароль
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new RuntimeException("Invalid password");
+        }
 
-        // СОЗДАЕМ UserDetails ДЛЯ JWT
+        log.info("Login successful for: {}", user.getEmail());
+
+        // Создаем UserDetails
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
                 user.getPassword(),
-                Collections.singletonList(() -> user.getRole().name())
+                Collections.singleton(new SimpleGrantedAuthority(user.getRole().name()))
         );
 
+        // Генерируем токен
         String token = jwtService.generateToken(userDetails);
-        System.out.println("=== TOKEN GENERATED: " +
-                (token != null ? token.substring(0, Math.min(30, token.length())) : "null") + "... ===");
 
         return AuthResponse.builder()
                 .token(token)
