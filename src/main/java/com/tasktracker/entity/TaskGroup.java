@@ -1,6 +1,8 @@
 package com.tasktracker.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -10,7 +12,9 @@ import java.util.List;
 @Entity
 @Table(name = "task_groups")
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class TaskGroup {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,12 +23,11 @@ public class TaskGroup {
     @Column(nullable = false)
     private String name;
 
-    // Связь с пользователем (владельцем группы)
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // Связь с задачами в группе
-    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "taskGroup", cascade = CascadeType.ALL)
+    @Builder.Default  // <-- ДОБАВИЛ
     private List<Task> tasks = new ArrayList<>();
 }

@@ -8,8 +8,12 @@ import com.tasktracker.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
@@ -41,11 +45,18 @@ public class AuthService {
         userRepository.save(user);
         System.out.println("=== USER SAVED, ID: " + user.getId() + " ===");
 
-        System.out.println("=== GENERATING JWT TOKEN ===");
-        String token = jwtService.generateToken(user);
-        System.out.println("=== TOKEN GENERATED: " + token.substring(0, 30) + "... ===");
+        // СОЗДАЕМ UserDetails ДЛЯ JWT
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                user.getEmail(),
+                user.getPassword(),
+                Collections.singletonList(() -> user.getRole().name())
+        );
 
-        // ВОТ ИСПРАВЛЕНИЕ: возвращаем и токен, и email
+        System.out.println("=== GENERATING JWT TOKEN ===");
+        String token = jwtService.generateToken(userDetails);
+        System.out.println("=== TOKEN GENERATED: " +
+                (token != null ? token.substring(0, Math.min(30, token.length())) : "null") + "... ===");
+
         return AuthResponse.builder()
                 .token(token)
                 .email(user.getEmail())
@@ -55,26 +66,38 @@ public class AuthService {
     public AuthResponse login(AuthRequest request) {
         System.out.println("=== AUTH SERVICE LOGIN CALLED: " + request.getEmail() + " ===");
 
-        // Аутентифицируем пользователя
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
-                )
-        );
+        try {
+            // Аутентифицируем пользователя
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
+            );
 
-        System.out.println("=== AUTHENTICATION SUCCESSFUL ===");
+            System.out.println("=== AUTHENTICATION SUCCESSFUL ===");
+        } catch (Exception e) {
+            System.out.println("=== AUTHENTICATION FAILED: " + e.getMessage() + " ===");
+            throw new RuntimeException("Authentication failed: " + e.getMessage());
+        }
 
         // Находим пользователя
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + request.getEmail()));
 
         System.out.println("=== USER FOUND: " + user.getEmail() + " ===");
 
-        String token = jwtService.generateToken(user);
-        System.out.println("=== TOKEN GENERATED: " + token.substring(0, 30) + "... ===");
+        // СОЗДАЕМ UserDetails ДЛЯ JWT
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                user.getEmail(),
+                user.getPassword(),
+                Collections.singletonList(() -> user.getRole().name())
+        );
 
-        // ВОТ ИСПРАВЛЕНИЕ: возвращаем и токен, и email
+        String token = jwtService.generateToken(userDetails);
+        System.out.println("=== TOKEN GENERATED: " +
+                (token != null ? token.substring(0, Math.min(30, token.length())) : "null") + "... ===");
+
         return AuthResponse.builder()
                 .token(token)
                 .email(user.getEmail())

@@ -9,8 +9,9 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthResponse {
-    private String token;
-    private String email;
-    private String error;
+public class TaskGroupDto {
+    private Long id;
+    private String name;
+    private Long userId;
+    private Integer taskCount;
 }

@@ -59,11 +59,11 @@ public class JwtService {
         System.out.println("=== ROLE IN TOKEN: " + role + " ===");
 
         return Jwts.builder()
-                .claims(extraClaims)
-                .subject(userDetails.getUsername())
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(getSignInKey())
+                .claims(extraClaims)                      // Новый метод: .claims() вместо .setClaims()
+                .subject(userDetails.getUsername())       // Новый метод: .subject() вместо .setSubject()
+                .issuedAt(new Date(System.currentTimeMillis())) // Новый метод: .issuedAt() вместо .setIssuedAt()
+                .expiration(new Date(System.currentTimeMillis() + expiration)) // Новый метод: .expiration() вместо .setExpiration()
+                .signWith(getSignInKey(), Jwts.SIG.HS256) // Указываем алгоритм явно для ясности
                 .compact();
     }
 
@@ -82,9 +82,9 @@ public class JwtService {
 
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .verifyWith(getSignInKey())
+                .verifyWith(getSignInKey())                // Новый метод: .verifyWith() вместо .setSigningKey()
                 .build()
-                .parseSignedClaims(token)
+                .parseSignedClaims(token)                  // Новый метод: .parseSignedClaims() вместо .parseClaimsJws()
                 .getPayload();
     }
 
@@ -96,7 +96,10 @@ public class JwtService {
     // Для обратной совместимости с JwtAuthenticationFilter
     public boolean validateToken(String token) {
         try {
-            extractAllClaims(token);
+            Jwts.parser()
+                    .verifyWith(getSignInKey())
+                    .build()
+                    .parseSignedClaims(token);
             return true;
         } catch (Exception e) {
             return false;

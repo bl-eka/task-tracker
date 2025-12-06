@@ -31,8 +31,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String userEmail;
 
         // Пропускаем, если нет Authorization header
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -40,16 +38,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        jwt = authHeader.substring(7);
-        userEmail = jwtService.extractEmail(jwt);
+        String jwt = authHeader.substring(7);
+        String userEmail = jwtService.extractEmail(jwt);
 
         // Если email извлечен и пользователь еще не аутентифицирован
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             // Загружаем пользователя из базы
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
 
-            // Проверяем валидность токена (ИСПРАВЛЕННАЯ СТРОКА)
-            if (jwtService.isTokenValid(jwt, userDetails)) {
+            // Проверяем валидность токена
+            if (jwtService.validateToken(jwt)) {
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
