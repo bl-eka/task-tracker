@@ -62,6 +62,8 @@ docker-compose up -d
 # Вариант 2: Запуск вручную
 .\mvnw.cmd spring-boot:run
 ```
+Примечание для Linux/Mac: используйте ./mvnw вместо .\mvnw.cmd
+
 Приложение будет доступно по адресу: http://localhost:8083
 ## 📚 API Документация
 После запуска доступна интерактивная документация:
@@ -109,8 +111,10 @@ services:
       POSTGRES_DB: tasktracker
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
-    ports:
+    ports
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 ```
 ### Схема базы данных
 - **users** - Пользователи (id, email, password, role)
