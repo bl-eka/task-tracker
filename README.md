@@ -47,7 +47,7 @@
 
 ### Шаг 1: Клонирование репозитория
 ```bash
-git clone <ваш-репозиторий>
+git clone https://github.com/bl-eka/task-tracker.git
 cd task-tracker
 ```
 ### Шаг 2: Запуск базы данных
